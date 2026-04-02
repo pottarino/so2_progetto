@@ -34,23 +34,25 @@ void add_reserved_keyword(const char *new_keyword) {
     char** temp = realloc(custom_keywords, (custom_keywords_count + 1) * sizeof(char*));
     if (temp) {
         custom_keywords = temp;
-        custom_keywords[custom_keywords_count] = strdup(new_keyword
-            );
+        custom_keywords[custom_keywords_count] = strdup(new_keyword);
         custom_keywords_count++;
     }
 
 }
 
-
-
 // funzione di utilità per concatenare stringhe con realloc
 void append_str(char** dest, const char* src) {
+    size_t new_len = (src ? strlen(src) : 0) + (*dest ? strlen(*dest) : 0) + 2;
+
+    char* temp = realloc(*dest, new_len);
+    if (!temp) return;
+
     if (*dest == NULL) {
-        *dest = strdup(src);
-    } else {
-        *dest = realloc(*dest, strlen(*dest) + strlen(src) + 2);
-        strcat(*dest, src);
+        temp[0] = '\0';
     }
+
+    *dest = temp;
+    strcat(*dest, src);
     strcat(*dest, "\n");
 }
 
