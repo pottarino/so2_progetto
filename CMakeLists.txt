@@ -8,4 +8,5 @@ include_directories(include)
 add_executable(SO2 main.c
         src/text_manipulation/parsers.c
         src/utility.c
-        include/utility.h)
+        include/utility.h
+        src/text_manipulation/variable_recognizer.c)
