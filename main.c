@@ -2,22 +2,22 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <utility.h>
 
 int main(int numeroArgomenti, char** argomenti) {
 
 
-
-    // DA FARE: INSERIRE CORPO ISTRUZIONI, GESTIONE ECCEZIONI
+    // PRO-MEM: riprendere da inserimento input e tokenizzazione (riga 98)
+    // DA FARE: INSERIRE CORPO ISTRUZIONI PRINCIPALE, GESTIONE ECCEZIONI I/O; CONTROLLO MEMLEAKS
 
     // Vengono settate le flags dei parametri in input
     // e alocato lo spazio iniziale per lo store delle variabili
+    int codiceUscita = 0; // Viene settato ad uno per chiusura dovuta ad errori
     bool flagParametroInput = false;
     char* parametroInput = malloc(32);
     bool flagParametroOutput = false;
     char* parametroOutput = malloc(32);
-    char parametroOutput2[] = {"s", "t", "d", "o", "u", "t", "\0"};
     bool flagVerbose = false;
-
 
 
 
@@ -27,7 +27,7 @@ int main(int numeroArgomenti, char** argomenti) {
 
         // Converto un argomento nella stringa corrispondente
         char* argomento = argomenti[counter];
-        strcpy(argomento, argomenti[counter]);
+
 
         // Valuto la stringa:
 
@@ -49,6 +49,8 @@ int main(int numeroArgomenti, char** argomenti) {
                 strcpy(parametroInput, argomenti[counter+1]);
                 // imposto la flag una volta controllato che vi è un input valido
                 flagParametroInput = true;
+                // Salto la prossima iterazione
+                counter++;
             }
         }
 
@@ -69,6 +71,8 @@ int main(int numeroArgomenti, char** argomenti) {
                 strcpy(parametroOutput, argomenti[counter+1]);
                 // imposto la flag una volta controllato che vi è un input valido
                 flagParametroOutput = true;
+                // salto la prossima iterazione
+                counter++;
             }
 
         }
@@ -79,29 +83,50 @@ int main(int numeroArgomenti, char** argomenti) {
             flagVerbose = true;
         }
 
-    }
 
+    }
 
     // Qui vengono tradotti i parametri di input e output e presi provvedimenti in base alle flags
     if (flagParametroInput == false) {
         // Occorre simulare una "eccezione" su parametroOutput2/stdout
         printf("Inserire parametro di input valido");
-        // Per liberare memoria a fine main
-        free(parametroInput);
-        free(parametroOutput);
-        return 1;
+        codiceUscita = 1;
+        goto liberaMemoria;
     }
+
+    // Altrimenti leggiamo il file in input e ci "facciamo cose" usando filereader delle utilities
+    char* fileStringato = filereader(parametroInput);
+    if (fileStringato == NULL) {
+        printf("Il file di input non può essere letto. Per favore riprovare");
+        codiceUscita = 1;
+        goto liberaMemoria;
+    }
+
+
+    // CODICE INTERMEDIO VA INSERITO QUI ( COSì SE NON C'è INPUT VALIDO FALLISCE IMMEDIATAMENTE)
+
+    // placeholder di quelle che saranno le statistiche da scrivere in output
+    char* statistiche;
 
     if (flagParametroOutput == true) {
         // si scrivono su file le statistiche
+        FILE *fileDaScrivere = fopen(parametroOutput, "w");
+        fprintf(fileDaScrivere, statistiche);
+        fclose(fileDaScrivere);
     }
-    //In ogni caso le statistiche vanno visualizzate su stdout.
+
+    if (flagVerbose == true) {
+        // si visualizzano le statistiche anche su stdout
+        printf(statistiche);
+    }
 
 
 
-
-    // Per liberare memoria a fine main
+    // Libera la memoria per evitare leaks e restituire il codice di uscita
+    liberaMemoria:
     free(parametroInput);
     free(parametroOutput);
+    free(fileStringato);
+    return codiceUscita;
 
 }
