@@ -3,16 +3,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <utility.h>
+#include <errors.h>
 
 int main(int numeroArgomenti, char** argomenti) {
 
 
-    // PRO-MEM: riprendere da inserimento input e tokenizzazione (riga 98)
-    // DA FARE: INSERIRE CORPO ISTRUZIONI PRINCIPALE, GESTIONE ECCEZIONI I/O; CONTROLLO MEMLEAKS
+    // DA FARE: Finire rilevamento e cominciare gestione errori
 
     // Vengono settate le flags dei parametri in input
     // e alocato lo spazio iniziale per lo store delle variabili
-    int codiceUscita = 0; // Viene settato ad uno per chiusura dovuta ad errori
+    StatusCode statusCode = NO_ERROR; // Viene inizializzato il codice di stato
     bool flagParametroInput = false;
     char* parametroInput = malloc(32);
     bool flagParametroOutput = false;
@@ -87,19 +87,18 @@ int main(int numeroArgomenti, char** argomenti) {
     }
 
     // Qui vengono tradotti i parametri di input e output e presi provvedimenti in base alle flags
+    // Riporto errore all'handler per input non validi
     if (flagParametroInput == false) {
-        // Occorre simulare una "eccezione" su parametroOutput2/stdout
-        printf("Inserire parametro di input valido");
-        codiceUscita = 1;
-        goto liberaMemoria;
+        statusCode = INPUT_ERROR;
+        goto exitHandler;
     }
-
-    // Altrimenti leggiamo il file in input e ci "facciamo cose" usando filereader delle utilities
+    // Provo a leggere con filereader il file dato in input
+    // GESTIONE ECCEZIONI INTERNO A FILEREADER
     char* fileStringato = filereader(parametroInput);
+    // Riporto errore all'handler se leggo file vuoto
     if (fileStringato == NULL) {
-        printf("Il file di input non può essere letto. Per favore riprovare");
-        codiceUscita = 1;
-        goto liberaMemoria;
+        statusCode = FILE_READ_ERROR;
+        goto exitHandler;
     }
 
 
@@ -111,8 +110,20 @@ int main(int numeroArgomenti, char** argomenti) {
     if (flagParametroOutput == true) {
         // si scrivono su file le statistiche
         FILE *fileDaScrivere = fopen(parametroOutput, "w");
-        fprintf(fileDaScrivere, statistiche);
-        fclose(fileDaScrivere);
+        // Se il file letto è vuoto
+        if (fileDaScrivere == NULL) {
+            statusCode = FILE_OPEN_ERROR;
+            goto exitHandler;
+        }
+        // Se non riesce a scrivere sul file ( e quindi fprintf non ha scritto nulla)
+        if (fprintf(fileDaScrivere, statistiche) < 0) {
+            statusCode = FILE_WRITE_ERROR;
+            goto exitHandler;
+        };
+        if (fclose(fileDaScrivere) != 0) {
+            statusCode = FILE_CLOSE_ERROR;
+            goto exitHandler;
+        };
     }
 
     if (flagVerbose == true) {
@@ -122,11 +133,17 @@ int main(int numeroArgomenti, char** argomenti) {
 
 
 
-    // Libera la memoria per evitare leaks e restituire il codice di uscita
-    liberaMemoria:
+    // Libera la memoria e gestisce gli errori
+    exitHandler:
     free(parametroInput);
     free(parametroOutput);
     free(fileStringato);
-    return codiceUscita;
-
+    switch (statusCode) {
+        case NO_ERROR: return 0;
+        case INPUT_ERROR: printf("errore nell'inserimento parametri di input"); return 1;    // POTREI DOVER CHIUDERE QUI I FILES
+        case FILE_OPEN_ERROR: printf( "errore nell'apertura file"); return 2;
+        case FILE_CLOSE_ERROR: printf( " errore nella chiusura del file"); return 3;
+        case FILE_READ_ERROR: printf( "errore nella lettura del file"); return 4;
+        case FILE_WRITE_ERROR: printf( "errore nella scrittura del file"); return 5;
+    }
 }

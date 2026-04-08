@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errors.h>
 
 char* standard_keywords[] = {
     "auto", "break", "case", "char", "const", "continue", "default", "do",
@@ -56,22 +57,64 @@ void append_str(char** dest, const char* src) {
     strcat(*dest, "\n");
 }
 
-//funzione per leggere un file
-char* filereader(char* const filedest) {
+//funzione per leggere un file, restituisce il buffer letto (NULL in caso di errore) e il valore del codice stato
+
+typedef struct {
+    char* buffer;
+    StatusCode statusCode;
+} FileRead;
+
+FileRead filereader(char* const filedest) {
+
+    // Inizializzo codice stato
+    char*  buffer = NULL;
+    StatusCode codiceStato = NO_ERROR;
+
     FILE *fp = fopen(filedest, "r");
-    if (!fp) return NULL;
+
+    // Se non legge alcun dato segnalo errore di apertura ed esco
+    if (!fp) {
+        codiceStato = FILE_OPEN_ERROR;
+        goto exitHandler;
+    }
 
     // vado alla fine per capire quanto spazio allocare
     fseek(fp, 0, SEEK_END);
     long size = ftell(fp);
+
+    //se ftell fallisce segnalo errore di lettura ed esco
+    if (size == 0) {
+        fclose(fp);
+        codiceStato = FILE_READ_ERROR;
+        goto exitHandler;
+    }
     rewind(fp);
 
-    char* buffer = malloc(size + 1);
-    if (buffer) {
-        fread(buffer, 1, size, fp);
-        buffer[size] = '\0'; // chiudo la stringa
+    // se malloc fallisce lo segnalo come un errore di lettura ed esco; tecnicamente sta fallendo la
+    // funzione filereader stessa
+    buffer = malloc(size + 1);
+    if (!buffer) {
+        fclose(fp);
+        codiceStato = FILE_READ_ERROR;
+        goto exitHandler;
     }
 
-    fclose(fp);
-    return buffer;
+    // Provo a mettere gli elementi letti nel buffer, se questo fallisce segnalo
+    // errore di lettura ed esco
+    if (fread(buffer, 1, size, fp) < size) {
+        fclose(fp);
+        free(buffer);
+        buffer = NULL;
+        codiceStato = FILE_READ_ERROR;
+        goto exitHandler;
+    }
+    buffer[size] = '\0'; // chiudo la stringa
+
+    // Se non riesco a chiudere il file segnalo l'errore chiusura file ed esco
+    if (fclose(fp) != 0) codiceStato = FILE_CLOSE_ERROR;
+
+
+    exitHandler:
+    FileRead fileRead = {buffer, codiceStato};
+    return fileRead;
 }
