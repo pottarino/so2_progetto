@@ -1,120 +1,147 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errors.h>
+    #include <stdio.h>
+    #include <string.h>
+    #include <stdlib.h>
+    #include <stdbool.h>
 
-char* standard_keywords[] = {
-    "auto", "break", "case", "char", "const", "continue", "default", "do",
-    "double", "else", "enum", "extern", "float", "for", "goto", "if",
-    "int", "long", "register", "return", "short", "signed", "sizeof", "static",
-    "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"
-};
+    typedef enum {
+        TOKEN_UNKNOWN,
+        TOKEN_KEYWORD,    // if, while, return...
+        TOKEN_TYPE,       // int, char, double, custom_t...
+        TOKEN_MODIFIER,   // const, static, volatile, unsigned...
+    } TokenType;
 
-char* *custom_keywords = NULL;
+    typedef struct {
+        char** items;
+        int count;
+    } Dictionary;
 
-int reserved_keywords_count = 32;
+    Dictionary dict_keywords = {NULL, 0};
+    Dictionary dict_types = {NULL, 0};
+    Dictionary dict_modifiers = {NULL, 0};
 
-int custom_keywords_count = 0;
-
-int is_keyword(const char* name) {
-    for (int i = 0; i < 32; i++) {
-        if (strcmp(name, standard_keywords[i]) == 0) return 1; // se è una standard
+    //gestione dizionari
+    void add_to_dict(Dictionary* dict, const char* word) {
+        for(int i = 0; i < dict->count; i++) {
+            if (strcmp(dict->items[i], word) == 0) return;
+        }
+        char** temp = realloc(dict->items, (dict->count + 1) * sizeof(char*));
+        if (temp) {
+            dict->items = temp;
+            dict->items[dict->count] = strdup(word);
+            dict->count++;
+        }
     }
 
-    for (int i = 0; i < custom_keywords_count; i++) {
-        if (strcmp(name, custom_keywords[i]) == 0) return 1; // o una aggiunta dall'utente
+    //inizializzazione
+    void init_syntax() {
+        //controlli
+        const char* k[] = {"if", "else", "for", "while", "do", "switch", "case", "break", "continue", "return", "sizeof", "typedef"};
+        for(int i=0; i<12; i++) add_to_dict(&dict_keywords, k[i]);
+
+        // tipi
+        const char* t[] = {"int", "char", "float", "double", "void", "long", "short", "bool"};
+        for(int i=0; i<8; i++) add_to_dict(&dict_types, t[i]);
+
+        // modificatori
+        const char* m[] = {"const", "static", "volatile", "unsigned", "signed", "extern", "register"};
+        for(int i=0; i<7; i++) add_to_dict(&dict_modifiers, m[i]);
     }
 
-    return 0;
-}
+    //ritorna il tipo di token
+    TokenType get_token_type(const char* word) {
+        if (!word) return TOKEN_UNKNOWN;
 
+        for(int i=0; i<dict_modifiers.count; i++)
+            if(strcmp(word, dict_modifiers.items[i]) == 0) return TOKEN_MODIFIER;
 
-void add_reserved_keyword(const char *new_keyword) {
-    if (is_keyword(new_keyword)) return;
+        for(int i=0; i<dict_types.count; i++)
+            if(strcmp(word, dict_types.items[i]) == 0) return TOKEN_TYPE;
 
-    char** temp = realloc(custom_keywords, (custom_keywords_count + 1) * sizeof(char*));
-    if (temp) {
-        custom_keywords = temp;
-        custom_keywords[custom_keywords_count] = strdup(new_keyword);
-        custom_keywords_count++;
+        for(int i=0; i<dict_keywords.count; i++)
+            if(strcmp(word, dict_keywords.items[i]) == 0) return TOKEN_KEYWORD;
+
+        return TOKEN_UNKNOWN;
     }
 
-}
-
-// funzione di utilità per concatenare stringhe con realloc
-void append_str(char** dest, const char* src) {
-    size_t new_len = (src ? strlen(src) : 0) + (*dest ? strlen(*dest) : 0) + 2;
-
-    char* temp = realloc(*dest, new_len);
-    if (!temp) return;
-
-    if (*dest == NULL) {
-        temp[0] = '\0';
+    int is_known_type(const char* word) {
+        return get_token_type(word) == TOKEN_TYPE;
     }
 
-    *dest = temp;
-    strcat(*dest, src);
-    strcat(*dest, "\n");
-}
-
-//funzione per leggere un file, restituisce il buffer letto (NULL in caso di errore) e il valore del codice stato
-
-typedef struct {
-    char* buffer;
-    StatusCode statusCode;
-} FileRead;
-
-FileRead filereader(char* const filedest) {
-
-    // Inizializzo codice stato
-    char*  buffer = NULL;
-    StatusCode codiceStato = NO_ERROR;
-
-    FILE *fp = fopen(filedest, "r");
-
-    // Se non legge alcun dato segnalo errore di apertura ed esco
-    if (!fp) {
-        codiceStato = FILE_OPEN_ERROR;
-        goto exitHandler;
+    int is_qualifier(const char* word) {
+        return get_token_type(word) == TOKEN_MODIFIER;
     }
 
-    // vado alla fine per capire quanto spazio allocare
-    fseek(fp, 0, SEEK_END);
-    long size = ftell(fp);
+    char** split(const char* src, const char *splitter) {
+        if (!src || !splitter) return NULL;
+        char* copy = strdup(src);
+        char** result = NULL;
+        int count = 0;
+        char* token = strtok(copy, splitter);
 
-    //se ftell fallisce segnalo errore di lettura ed esco
-    if (size == 0) {
-        fclose(fp);
-        codiceStato = FILE_READ_ERROR;
-        goto exitHandler;
-    }
-    rewind(fp);
-
-    // se malloc fallisce lo segnalo come un errore di lettura ed esco; tecnicamente sta fallendo la
-    // funzione filereader stessa
-    buffer = malloc(size + 1);
-    if (!buffer) {
-        fclose(fp);
-        codiceStato = FILE_READ_ERROR;
-        goto exitHandler;
+        while (token) {
+            char** temp = realloc(result, (count + 2) * sizeof(char*));
+            if (!temp) break;
+            result = temp;
+            result[count++] = strdup(token);
+            result[count] = NULL;
+            token = strtok(NULL, splitter);
+        }
+        free(copy);
+        return result;
     }
 
-    // Provo a mettere gli elementi letti nel buffer, se questo fallisce segnalo
-    // errore di lettura ed esco
-    if (fread(buffer, 1, size, fp) < size) {
-        fclose(fp);
-        free(buffer);
-        buffer = NULL;
-        codiceStato = FILE_READ_ERROR;
-        goto exitHandler;
+    // libera la memoriadello split
+    void free_split(char** words) {
+        if (!words) return;
+        for (int i = 0; words[i] != NULL; i++) free(words[i]);
+        free(words);
     }
-    buffer[size] = '\0'; // chiudo la stringa
 
-    // Se non riesco a chiudere il file segnalo l'errore chiusura file ed esco
-    if (fclose(fp) != 0) codiceStato = FILE_CLOSE_ERROR;
+    int is_variable_declaration(const char* line) {
+        char** words = split(line, " ");
+        if (!words || !words[0]) {
+            free_split(words);
+            return 0;
+        }
+        int i = 0;
+        bool type_found = false;
 
+        //salta i modificatori (possono essercene più di uno: static const...)
+        while (words[i] && get_token_type(words[i]) == TOKEN_MODIFIER) {
+            i++;
+        }
 
-    exitHandler:
-    FileRead fileRead = {buffer, codiceStato};
-    return fileRead;
-}
+        //verifica se c'è un tipo
+        if (words[i] && get_token_type(words[i]) == TOKEN_TYPE) {
+            type_found = true;
+            i++;
+        }
+
+        if (!type_found) {
+            free_split(words);
+            return 0;
+        }
+
+        // analisi del resto della riga
+        //se dopo il tipo troviamo subito una '(', è una funzione, non una variabile
+        while (words[i]) {
+            //se contiene una parentesi e non c'è un assegnamento '=', è una funzione
+            if (strchr(words[i], '(') && !strchr(words[i], '=')) {
+                free_split(words);
+                return 0;
+            }
+
+            //sse troviamo un carattere alfabetico o un asterisco, è potenzialmente un nome
+            if (strpbrk(words[i], "*_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")) {
+                free_split(words);
+                return 1;
+            }
+            i++;
+        }
+        free_split(words);
+        return 0;
+    }
+
+    int is_keyword(const char* word) {
+        return get_token_type(word) != TOKEN_UNKNOWN;
+    }

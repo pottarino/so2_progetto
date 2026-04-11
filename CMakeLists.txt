@@ -9,4 +9,17 @@ add_executable(SO2 main.c
         src/text_manipulation/parsers.c
         src/utility.c
         include/utility.h
-        src/text_manipulation/variable_recognizer.c)
+        src/text_manipulation/variable_recognizer.c
+        src/testing/maintest.c
+        cmake-build-debug/testcase1.c
+        include/parsers.h)
+
+
+add_executable(esegui_test
+        src/text_manipulation/parsers.c
+        src/utility.c
+        include/utility.h
+        src/text_manipulation/variable_recognizer.c
+        src/testing/maintest.c
+        cmake-build-debug/testcase1.c
+        include/parsers.h)
