@@ -24,9 +24,9 @@
  *  che lavori sulle CodeLines riguardanti le istruzioni
  *
  *  Vanno definite le seguenti strutture dati:
- *
- *  1) una Variable, ottenuta da una ParsedCodeLine, che ha come attributi: nome, tipo di dato e valore
- *  2) le variables andranno messe in una mappa che consente di collegare ciascun nome di variabile ad una tupla contente tre dati:
+ *  1) Una ParsedCodeLine, ovvero una CodeLine contenente l'istruzione formattata FATTA
+ *  2) una Variable, ottenuta da una ParsedCodeLine, che ha come attributi: nome, tipo di dato e valore
+ *  3) le variables andranno messe in una mappa che consente di collegare ciascun nome di variabile ad una tupla contente tre dati:
  *      nome, Variable, usedBit.
  *
  *  Vanno definite le seguenti funzioni di appoggio:
@@ -38,7 +38,7 @@
  *
  *  La funzione finale dovrà scorrere prima ParsedGlobal, poi ParsedMain:
  *
- *  // ToDo: definire
+ *  //  Da definire
  *      Per ParsedGlobal:
  *          1) variable lines:
  *          2) type defs:
