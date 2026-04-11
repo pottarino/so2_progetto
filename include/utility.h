@@ -1,6 +1,9 @@
 #ifndef PARSERS_H
 #define PARSERS_H
 #include <stdbool.h>
+
+#include "errors.h"
+
 typedef enum {
     TOKEN_UNKNOWN,
     TOKEN_KEYWORD,
@@ -12,6 +15,11 @@ typedef struct {
     char** items;
     int count;
 } Dictionary;
+
+typedef struct {
+    char* buffer;
+    StatusCode statusCode;
+} FileRead;
 
 extern Dictionary dict_keywords;
 extern Dictionary dict_types;
@@ -25,7 +33,7 @@ TokenType get_token_type(const char* word);
 int is_known_type(char* word);
 char** split(const char* src, const char *splitter);
 void free_split(char** words);
-
+FileRead filereader(char* file);
 int is_variable_declaration(const char* line);
 
 #endif

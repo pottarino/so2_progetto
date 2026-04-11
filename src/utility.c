@@ -3,12 +3,20 @@
     #include <stdlib.h>
     #include <stdbool.h>
 
+#include "errors.h"
+
     typedef enum {
         TOKEN_UNKNOWN,
         TOKEN_KEYWORD,    // if, while, return...
         TOKEN_TYPE,       // int, char, double, custom_t...
         TOKEN_MODIFIER,   // const, static, volatile, unsigned...
     } TokenType;
+
+
+    typedef struct {
+        char* buffer;
+        StatusCode statusCode;
+    } FileRead;
 
     typedef struct {
         char** items;
@@ -140,6 +148,67 @@
         }
         free_split(words);
         return 0;
+    }
+
+#include <stdio.h>
+#include <stdlib.h>
+
+/**
+ * legge il contenuto di un file e lo alloca in un buffer.
+ * gestisce gli errori tramite StatusCode e pulizia con goto.
+ */
+FileRead filereader(char* const filedest) {
+        char* buffer = NULL;
+        StatusCode codiceStato = NO_ERROR;
+        FILE *fp = NULL;
+
+        fp = fopen(filedest, "r");
+        if (!fp) {
+            codiceStato = FILE_OPEN_ERROR;
+            goto exitHandler;
+        }
+
+        // calcolo dimensione file
+        if (fseek(fp, 0, SEEK_END) != 0) {
+            codiceStato = FILE_READ_ERROR;
+            goto exitHandler;
+        }
+
+        long size = ftell(fp);
+        if (size <= 0) {
+            codiceStato = FILE_READ_ERROR;
+            goto exitHandler;
+        }
+
+        rewind(fp);
+
+        // allocazione memoria
+        buffer = malloc(size + 1);
+        if (!buffer) {
+            codiceStato = FILE_READ_ERROR; // o MALLOC_ERROR se definito
+            goto exitHandler;
+        }
+
+        // lettura effettiva
+        size_t read_size = fread(buffer, 1, size, fp);
+        if (read_size < (size_t)size) {
+            codiceStato = FILE_READ_ERROR;
+            free(buffer);
+            buffer = NULL;
+            goto exitHandler;
+        }
+
+        buffer[size] = '\0';
+
+        exitHandler:
+            if (fp) {
+                if (fclose(fp) != 0 && codiceStato == NO_ERROR) {
+                    codiceStato = FILE_CLOSE_ERROR;
+                }
+            }
+
+        FileRead result = {buffer, codiceStato};
+        return result;
     }
 
     int is_keyword(const char* word) {
