@@ -34,9 +34,14 @@ typedef struct {
     int typedefs_count;
 } ParsedGlobal;
 
+typedef struct {
+    CodeLine codeLine;
+    char* formattedCodeLine;
+} ParsedCodeLine;
+
 ParsedProgram first_parsing(char * const text, char* const filename);
 ParsedGlobal parseGlobal(ParsedProgram p);
-
+ParsedCodeLine parseCodeLine(CodeLine c);
 
 void init_codeline(CodeLine* cl, const char* filename);
 void add_fragment(CodeLine* cl, const char* text, int line_num);

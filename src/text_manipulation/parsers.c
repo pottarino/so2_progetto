@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 typedef struct {
     char* line;
@@ -25,6 +26,11 @@ typedef struct {
     int count;
     char* filename;
 } CodeLine;
+
+typedef struct {
+    CodeLine codeLine;
+    char* formattedCodeLine;
+} ParsedCodeLine;
 
 
 typedef struct {
@@ -223,5 +229,96 @@ ParsedGlobal parseGlobal(ParsedProgram p) {
     pg.typedefs_count = t_count;
     pg.variables_count = v_count;
     return pg;
+}
+
+// Questa funzione formatta una CodeLine e la restituisce wrappata in una ParsedCodeLine contenente
+// sia la CodeLine originale inviolata che la stringa ottenuta parsandone il contenuto
+ParsedCodeLine parseCodeLine(CodeLine const c) {
+    ParsedCodeLine parsedCodeLine;
+    parsedCodeLine.codeLine = c;
+    // Lo stavate aspettando! Ci ho messo più di 4 ore a scrivere questa stupidaggine
+    int dimensioneTotale = 0;
+    char* stringaFormattata = malloc(1);
+    stringaFormattata[0] = '\0';
+    for (int contatoreRiga = 0; contatoreRiga < c.count; contatoreRiga++ ) {
+        // Ho una riga non formattata. Devo formattarla
+
+        // Prima passata:
+        // Controllo il numero di caratteri "reali" che ci interessano
+        // (gne gne gne è un puntatore non è un array gne gne gne tipico C# loser)
+        int numeroCaratteriRiga = 0;
+        char* start = c.lines[contatoreRiga];
+        char* end = start;
+
+        // Imposto le flags
+        bool flagStringa = false;
+        while ( *end != '\0') {
+            char carattereCorrente = *end;
+            if (carattereCorrente == ' ' && flagStringa == false) {
+                if (*(end+1) == ' ' || *(end+1) == '\0') {
+                    end++;
+                    continue;
+                }
+            }
+            if ((carattereCorrente == '\t' || carattereCorrente == '\n') && flagStringa == false) {
+                end++;
+                continue;
+            }
+            if (carattereCorrente == '"') {
+                if (flagStringa == false) flagStringa = true;
+                else flagStringa = false;
+            }
+            numeroCaratteriRiga++;
+            end++;
+        }
+
+        // Alloco la nuova riga
+        char* rigaFormattata = malloc(numeroCaratteriRiga+1);
+
+        // Seconda passata per aggiungere caratteri alla rigaFormattata
+        int contatoreCarattere = 0;
+        end = start;
+        flagStringa = false;
+        while ( *end != '\0') {
+            char carattereCorrente = *end;
+            if (carattereCorrente == ' ' && flagStringa == false) {
+                if (*(end+1) == ' ' || *(end+1) == '\0') {
+                    end++;
+                    continue;
+                }
+            }
+            if ((carattereCorrente == '\t' || carattereCorrente == '\n') && flagStringa == false) {
+                end++;
+                continue;
+            }
+            if (carattereCorrente == '"') {
+                if (flagStringa == false) flagStringa = true;
+                else flagStringa = false;
+            }
+            rigaFormattata[contatoreCarattere] = *end;
+            contatoreCarattere++;
+            end++;
+        }
+        // Una volta avuta la riga formattata la concateno alla stringa usando una malloc
+        dimensioneTotale += numeroCaratteriRiga;
+        rigaFormattata[numeroCaratteriRiga] = '\0';
+        // Se non sono nella prima iterazione, devo aggiungere degli spazi e quindi cambia la dimensione della realloc
+        if (contatoreRiga != 0) {
+            dimensioneTotale += 1;
+            stringaFormattata = realloc(stringaFormattata, dimensioneTotale +1 );
+            strcat(stringaFormattata, " ");
+            stringaFormattata =  strcat(stringaFormattata, rigaFormattata);
+        }
+        else {
+            stringaFormattata = realloc(stringaFormattata, dimensioneTotale +1 );
+            stringaFormattata =  strcat(stringaFormattata, rigaFormattata);
+        }
+        free(rigaFormattata);
+    }
+    // Aggiornare il valore di stringaFormattata della struct
+    parsedCodeLine.formattedCodeLine = stringaFormattata;
+
+    // Restituire la struct; printf("Hallelujah!")
+    return parsedCodeLine;
 }
 
