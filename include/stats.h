@@ -4,7 +4,6 @@
 
 #ifndef SO2_STATS_H
 #define SO2_STATS_H
-#include <parsers.h>
 
 /** Controllare singolarmente le variabili è un modo estremamente inefficiente di operare.
  *  L'obiettivo di questa parte è quindi quello di avere un modo di scorrere una sola volta
@@ -25,14 +24,14 @@
  *
  *  Vanno definite le seguenti strutture dati:
  *  1) Una ParsedCodeLine, ovvero una CodeLine contenente l'istruzione formattata FATTA
- *  2) una Variable, ottenuta da una ParsedCodeLine, che ha come attributi: nome, tipo di dato e valore
- *  3) le variables andranno messe in una mappa che consente di collegare ciascun nome di variabile ad una tupla contente tre dati:
- *      nome, Variable, usedBit.
+ *  2) una Variable, ottenuta da una ParsedCodeLine, che ha come attributi: nome, tipo di dato e valore FATTA
+ *  3) le variables andranno messe in una mappa che consente di collegare ciascun nome di variabile ad una tupla contente quattro dati:
+ *      declaredName, declarationLineNumber, usedBit, e deletedBit ( per free malloc di declaredName) FATTA
  *
  *  Vanno definite le seguenti funzioni di appoggio:
  *  1)  funzione per ottenere la ParsedCodeLine FATTA ( occhio che parse iniziali eliminano ";")
  *  2)  funzione che, data in input una ParsedCodeLine riguardante una variabile ed una mappa, può rilevare errori relativi,
- *      generare o aggiornare la Variable, e fare lo store nella mappa della stessa;
+ *      generare o aggiornare la Variable, e fare lo store nella mappa della stessa; A tal proposito occorre riadattare
  *  3) funzione per controllare la correttezza di istruzioni?
  *
  *
