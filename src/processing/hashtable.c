@@ -21,7 +21,7 @@ void initHashTable(HashTable *ht) {
 // Funzione per inserire ( si inseriscono puntatori)
 bool hashTableInsert(HashTable *ht, Variable *var) {
     if (var == NULL) return false;
-    int index = hash(var->declaredName);
+    int index = hash(var->name);
     for (int i = 0; i < TABLE_SIZE; i++) {
         // Le collisioni vengono gestitite con una ricerca sequenziale del prossimo spazio libero
         // lo spazio può essere null o riutilizzato da una Variable con deletedBit ad 1
@@ -42,7 +42,7 @@ Variable *hashTableLookup(HashTable *ht, char *variableName) {
         int indice = (index + i) % TABLE_SIZE;
         if (ht->table[indice] == NULL) return NULL;
         if (ht->table[indice]->deletedBit == 1) continue;
-        if (strcmp(variableName, ht->table[indice]->declaredName) == 0) {
+        if (strcmp(variableName, ht->table[indice]->name) == 0) {
             return ht->table[indice];
         }
     }
@@ -57,11 +57,11 @@ Variable *hashTableRemove(HashTable *ht, char *variableName) {
         int indice = (index + i) % TABLE_SIZE;
         if (ht->table[indice] == NULL) return NULL;
         if (ht->table[indice]->deletedBit == 1) continue;
-        if (strcmp(variableName, ht->table[indice]->declaredName) == 0) {
+        if (strcmp(variableName, ht->table[indice]->name) == 0) {
             // Libero la memoria allocata per la variabile e setto il bit rimosso ad 1
             ht->table[indice]->deletedBit = 1;
-            free(ht->table[indice]->declaredName);
-            ht->table[indice]->declaredName = NULL;
+            free(ht->table[indice]->name);
+            ht->table[indice]->name = NULL;
             return ht->table[indice];
         }
     }

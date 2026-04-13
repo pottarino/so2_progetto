@@ -18,4 +18,13 @@ typedef enum {
     VARIABLE_TYPE_ERROR,
     VARIABLE_UNUSED_ERROR,
 } VariableError;
+
+typedef struct {
+    VariableError type;
+    int line;
+    char* filename;
+} Error;
+
+
 #endif //SO2_ERRORS_H
+

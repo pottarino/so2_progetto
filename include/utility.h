@@ -17,7 +17,7 @@ typedef struct {
 } Dictionary;
 
 typedef struct {
-    char* buffer;
+    char* text;
     StatusCode statusCode;
 } FileRead;
 
@@ -33,7 +33,8 @@ TokenType get_token_type(const char* word);
 int is_known_type(char* word);
 char** split(const char* src, const char *splitter);
 void free_split(char** words);
-FileRead filereader(char* file);
-int is_variable_declaration(const char* line);
+FileRead file_reader(char* file);
+int allocate_more(void ** pointer, int *old_size);
+int free_unused(void **pointer, int new_size);
 
 #endif

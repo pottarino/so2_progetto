@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "variable_recognizer.h"
+
 /**
  * Variable è una struttura dati che rappresenta una variabile dichiarata: ci interessano il nome, dove viene dichiarata
  * e se viene usata. Lo scopo è quello di poter raccogliere le variabili per controllare in seguito se sono
@@ -32,13 +34,6 @@
 unsigned int hash(const char* nomeVariabile);
 
 
-// Struttura dati per tenere traccia di nome e utilizzo variabili
-typedef struct {
-    char* declaredName;
-    int declarationLineNumber; // Dove viene dichiarata la variabile
-    int usedBit;
-    int deletedBit; // viene impostato ad 1 quando faccio il free(declaredName)
-} Variable;
 
 // Creazione
 typedef struct {

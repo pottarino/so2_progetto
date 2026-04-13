@@ -34,7 +34,9 @@ typedef struct {
 
 typedef struct {
     CodeLine *variable_lines;
+    int variables_count;
     CodeLine *instructions;
+    int instructions_count;
 } ParsedMain;
 
 typedef struct {
@@ -45,14 +47,19 @@ typedef struct {
 }ParsedGlobal;
 
 typedef struct {
-    char* name; //temp
-}ParsedHeader;
-
+    char** headers; //temp
+    int count;
+}ParsedHeaders;
+ParsedCodeLine parseCodeLine(CodeLine const c);
+ParsedMain parseMainProgram(ParsedProgram pp);
+ParsedHeaders parseHeaders(ParsedProgram* pp);
 ParsedProgram first_parsing(char * const text, char* const filename);
 ParsedGlobal parseGlobal(ParsedProgram p);
-
 void init_codeline(CodeLine* cl, const char* filename);
 void add_fragment(CodeLine* cl, const char* text, int line_num);
 void append_filetext(FileText** dest, int* count, const char* line, int line_number, const char* filename);
-
+void free_parsed_program(ParsedProgram* p);
+void free_parsed_parts(ParsedGlobal* pg, ParsedMain* pm) ;
+void free_headers(ParsedHeaders* ph);
+void free_codeline(CodeLine* cl) ;
 #endif // PARSER_H

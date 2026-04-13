@@ -2,6 +2,8 @@
 // Created by potta on 02/04/2026.
 //
 
+#include "variable_recognizer.h"
+
 #include "utility.h"
 #include "parsers.h"
 #include <ctype.h>
@@ -103,4 +105,137 @@ int is_variable(CodeLine codeline) {
         free_split(words);
     }
     return 0;
+}
+
+
+Variable* parse_variable_declaration(CodeLine codeline, int* total_found) {
+    *total_found = 0;
+    Variable* var_list = NULL;
+
+    char** words = split(codeline.lines[0], " ");
+    if (!words) return NULL;
+
+    int j = 0;
+    char temp_type[512] = "";
+    int type_valid = 1;
+
+    // 1. isola il tipo per tutta la riga
+    while (words[j] != NULL && (is_qualifier(words[j]) || is_known_type(words[j]) || strcmp(words[j], "*") == 0)) {
+        if (is_keyword(words[j]) && !is_known_type(words[j]) && !is_qualifier(words[j])) {
+            type_valid = 0;
+            break;
+        }
+        strcat(temp_type, words[j]);
+        strcat(temp_type, " ");
+        j++;
+    }
+
+    if (strlen(temp_type) > 0) {
+        temp_type[strlen(temp_type) - 1] = '\0';
+    } else {
+        type_valid = 0;
+        strcpy(temp_type, "unknown");
+    }
+
+    // 2. crea una struct per ogni nome trovato
+    while (words[j] != NULL) {
+        if (strchr(words[j], '(') != NULL && strchr(words[j], '=') == NULL) break;
+
+        char clean_name[256];
+        int k = 0, m = 0;
+        // pulizia al volo
+        while (words[j][k] != '\0' && words[j][k] != '=' && m < 255) {
+            if (words[j][k] != '*' && words[j][k] != ',' && words[j][k] != ';' &&
+                words[j][k] != '[' && words[j][k] != ']') {
+                clean_name[m++] = words[j][k];
+            }
+            k++;
+        }
+        clean_name[m] = '\0';
+
+        if (strlen(clean_name) > 0) {
+            var_list = realloc(var_list, sizeof(Variable) * (*total_found + 1));
+            Variable* v = &var_list[*total_found];
+
+            // setup dati
+            // Mentre scorri i token (words[j])
+            if (strcmp(words[j], "=") == 0) {
+                // Se è un uguale isolato, saltalo e non creare una Variable!
+                j++;
+                continue;
+            }
+
+            // Se il token pulito è vuoto o è solo punteggiatura, saltalo
+            if (strlen(clean_name) == 0 || strcmp(clean_name, "*") == 0) {
+                j++;
+                continue;
+            }
+            v->type = strdup(temp_type);
+            v->name = strdup(clean_name);
+            v-> line = codeline;
+            v->deletedBit = 0;
+            v->errors = NULL;
+            v->errors_count = 0;
+
+            // check errori (type o name)
+            if (!type_valid) {
+                v->errors = malloc(sizeof(VariableError));
+                *(v->errors) = VARIABLE_TYPE_ERROR;
+                v->errors_count++;
+            }
+            if (is_keyword(clean_name) || !is_name_valid(clean_name)) {
+                v->errors = malloc(sizeof(VariableError));
+                *(v->errors) = VARIABLE_NAME_ERROR;
+                v->errors_count++;
+            }
+
+            (*total_found)++;
+        }
+
+        // salta l'inizializzazione se c'è
+        if (strchr(words[j], '=') != NULL) {
+            while (words[j] != NULL && strchr(words[j], ',') == NULL && strchr(words[j], ';') == NULL) {
+                j++;
+            }
+            if (words[j] == NULL) break;
+        }
+
+        if (strchr(words[j], ';') != NULL) break;
+        j++;
+    }
+
+    free_split(words);
+    return var_list;
+}
+
+// libera l'array di variabili estratte
+void free_variables(Variable* v, int count) {
+    if (!v) return;
+    for (int i = 0; i < count; i++) {
+        free(v[i].type);
+        v[i].type = NULL;
+        free(v[i].name);
+        v[i].name = NULL;
+        // libera l'array errori se c'è (mallocata nel parser)
+        if (v[i].errors) free(v[i].errors);
+    }
+    free(v);
+}
+
+char* getStructType(CodeLine cl) {
+    // Supponendo che cl.lines[0] sia "typedef struct Point Point;" o simile
+    // Molto ignorante: cerchiamo l'ultima parola prima del punto e virgola
+    if (cl.count == 0 || cl.lines[0] == NULL) return "unknown";
+    char** words = split(cl.lines[0], " ");
+    int i = 0;
+    while (words[i] != NULL) i++;
+
+    // Ritorna l'ultima parola (il nome del tipo definito)
+    char* result = strdup(words[i-1]);
+    // Pulisci eventuale ';' alla fine
+    char* semi = strchr(result, ';');
+    if (semi) *semi = '\0';
+
+    free_split(words);
+    return result;
 }

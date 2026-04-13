@@ -49,12 +49,6 @@
  *          2) instructions:
  */
 
-typedef struct {
-    VariableError type;
-    int line;
-    char* filename;
-} Error;
-
 typedef struct{
     int variable_counter;
     int error_counter;
@@ -65,4 +59,6 @@ typedef struct{
     Variable * unused_variables;
 } Stats;
 
+
+Stats stats_calculator(ParsedProgram pp);
 #endif //SO2_STATS_H

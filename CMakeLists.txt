@@ -12,5 +12,6 @@ add_executable(SO2
         src/processing/hashtable.c
         src/text_manipulation/variable_recognizer.c
         src/processing/stats.c
+        cmake-build-debug/Testing/test.txt
 
 )
