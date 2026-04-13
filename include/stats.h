@@ -4,6 +4,8 @@
 
 #ifndef SO2_STATS_H
 #define SO2_STATS_H
+#include "errors.h"
+#include "hashtable.h"
 
 /** Controllare singolarmente le variabili è un modo estremamente inefficiente di operare.
  *  L'obiettivo di questa parte è quindi quello di avere un modo di scorrere una sola volta
@@ -47,6 +49,20 @@
  *          2) instructions:
  */
 
+typedef struct {
+    VariableError type;
+    int line;
+    char* filename;
+} Error;
 
+typedef struct{
+    int variable_counter;
+    int error_counter;
+    int unused_variable_counter;
+    int illegal_names_counter;
+    int wrong_type_counter;
+    Error * errors;
+    Variable * unused_variables;
+} Stats;
 
 #endif //SO2_STATS_H

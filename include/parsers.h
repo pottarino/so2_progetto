@@ -22,26 +22,34 @@ typedef struct {
 typedef struct {
     char** lines;
     int* line_numbers;
-    int* continues;
     int count;
     char* filename;
 } CodeLine;
-
-typedef struct {
-    CodeLine* variables;
-    CodeLine* typedefs;
-    int variables_count;
-    int typedefs_count;
-} ParsedGlobal;
 
 typedef struct {
     CodeLine codeLine;
     char* formattedCodeLine;
 } ParsedCodeLine;
 
+
+typedef struct {
+    CodeLine *variable_lines;
+    CodeLine *instructions;
+} ParsedMain;
+
+typedef struct {
+    CodeLine* variable_lines;
+    CodeLine* typedefs;
+    int variables_count;
+    int typedefs_count;
+}ParsedGlobal;
+
+typedef struct {
+    char* name; //temp
+}ParsedHeader;
+
 ParsedProgram first_parsing(char * const text, char* const filename);
 ParsedGlobal parseGlobal(ParsedProgram p);
-ParsedCodeLine parseCodeLine(CodeLine c);
 
 void init_codeline(CodeLine* cl, const char* filename);
 void add_fragment(CodeLine* cl, const char* text, int line_num);

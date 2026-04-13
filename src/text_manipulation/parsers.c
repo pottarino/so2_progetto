@@ -5,45 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-
-typedef struct {
-    char* line;
-    int line_number;
-    char* filename;
-} FileText;
-
-typedef struct {
-    FileText* headers;
-    FileText* variables;
-    FileText* main_body;
-    char* filename;
-    int h_count, v_count, m_count;
-} ParsedProgram;
-
-typedef struct {
-    char** lines;
-    int* line_numbers;
-    int count;
-    char* filename;
-} CodeLine;
-
-typedef struct {
-    CodeLine codeLine;
-    char* formattedCodeLine;
-} ParsedCodeLine;
-
-
-typedef struct {
-    CodeLine *variable_lines;
-    CodeLine *instructions;
-} ParsedMain;
-
-typedef struct {
-    CodeLine* variable_lines;
-    CodeLine* typedefs;
-    int variables_count;
-    int typedefs_count;
-}ParsedGlobal;
+#include "variable_recognizer.h"
 
 void append_filetext(FileText** dest, int* count, const char* line, int line_number, const char* filename) {
     FileText* temp = realloc(*dest, (*count + 2) * sizeof(FileText));
@@ -157,79 +119,133 @@ void add_fragment(CodeLine* cl, const char* text, int line_num) {
     cl->line_numbers[cl->count - 1] = line_num;
 }
 
-ParsedGlobal parseGlobal(ParsedProgram p) {
-    //inizializziamo
-    ParsedGlobal pg;
-    pg.variable_lines = NULL;
-    pg.typedefs = NULL;
-    int v_count = 0;
-    int t_count = 0;
+CodeLine* split_into_codelines(const FileText* file_texts, const int count, int* out_cl_count) {
+    if (count <= 0 || file_texts == NULL) {
+        *out_cl_count = 0;
+        return NULL;
+    }
+
+    int cl_count = 0;
+    CodeLine* results = NULL;
 
     CodeLine current_cl;
-    init_codeline(&current_cl, p.filename);
+    //usiamo il filename contenuto nel primo FileText dell'array
+    init_codeline(&current_cl, file_texts[0].filename);
 
-    for (int i = 0; i < p.v_count; i++) {
-        char* cursor = p.variables[i].line;
-        int current_num = p.variables[i].line_number;
-
+    for (int i = 0; i < count; i++) {
+        char* cursor = file_texts[i].line;
+        int current_num = file_texts[i].line_number;
         char* semi;
-        // finché troviamo un punto e virgola, l'istruzione corrente "chiude"
+
         while ((semi = strchr(cursor, ';')) != NULL) {
-            // estraiamo il pezzo di codice prima del ;
             int len = (int)(semi - cursor);
             char* fragment = malloc(len + 1);
             strncpy(fragment, cursor, len);
             fragment[len] = '\0';
 
-            // aggiungiamo l'ultimo pezzo a current_cl
             add_fragment(&current_cl, fragment, current_num);
             free(fragment);
 
-            // ora che è chiusa col ;, decidiamo dove salvarla.
-            // dato che i commenti non ci sono, il primo frammento (lines[0])
-            // deve per forza contenere "typedef" se è un typedef.
-            if (current_cl.count > 0 && strstr(current_cl.lines[0], "typedef") != NULL) {
-                t_count++;
-                pg.typedefs = realloc(pg.typedefs, sizeof(CodeLine) * t_count);
-                pg.typedefs[t_count - 1] = current_cl;
-            } else {
-                v_count++;
-                pg.variable_lines = realloc(pg.variable_lines, sizeof(CodeLine) * v_count);
-                pg.variable_lines[v_count - 1] = current_cl;
-            }
+            //salvataggio dell'istruzione completata
+            cl_count++;
+            results = realloc(results, sizeof(CodeLine) * cl_count);
+            results[cl_count - 1] = current_cl;
 
-            // pulizia: resettiamo current_cl per la prossima istruzione logica
-            init_codeline(&current_cl, p.filename);
+            //prepariamo la prossima CodeLine
+            init_codeline(&current_cl, file_texts[i].filename);
 
-            // spostiamo il cursore oltre il ; e saltiamo eventuali spazi
             cursor = semi + 1;
             while (*cursor == ' ' || *cursor == '\t') cursor++;
         }
 
-        // se siamo qui e il cursore non è alla fine della riga, significa che
-        // quello che resta è l'inizio di un'istruzione che continua alla riga dopo
+        // Se la riga non finisce con ';', il resto va nella CodeLine corrente
         if (*cursor != '\0') {
             add_fragment(&current_cl, cursor, current_num);
         }
     }
 
-    // se il file finisce e abbiamo ancora roba in canna (magari manca un ; finale)
+    //gestione dell'ultimo frammento se il file non termina con ';'
     if (current_cl.count > 0) {
-        if (strstr(current_cl.lines[0], "typedef") != NULL) {
-            t_count++;
-            pg.typedefs = realloc(pg.typedefs, sizeof(CodeLine) * t_count);
-            pg.typedefs[t_count - 1] = current_cl;
-        } else {
-            v_count++;
-            pg.variable_lines = realloc(pg.variable_lines, sizeof(CodeLine) * v_count);
-            pg.variable_lines[v_count - 1] = current_cl;
-        }
+        cl_count++;
+        results = realloc(results, sizeof(CodeLine) * cl_count);
+        results[cl_count - 1] = current_cl;
     }
 
-    pg.typedefs_count = t_count;
-    pg.variables_count = v_count;
+    *out_cl_count = cl_count;
+    return results;
+}
+
+/**
+ * Libera la memoria interna di una struttura CodeLine.
+ * Da usare quando una CodeLine viene scartata o non più necessaria.
+ */
+void free_codeline(CodeLine* cl) {
+    if (cl == NULL) {
+        return;
+    }
+
+    //libera ogni singola array line
+    if (cl->lines != NULL) {
+        for (int i = 0; i < cl->count; i++) {
+            if (cl->lines[i] != NULL) {
+                free(cl->lines[i]);
+                cl->lines[i] = NULL;
+            }
+        }
+        free(cl->lines);
+        cl->lines = NULL;
+    }
+
+    // libera i numeri
+    if (cl->line_numbers != NULL) {
+        free(cl->line_numbers);
+        cl->line_numbers = NULL;
+    }
+
+    cl->count = 0;
+}
+
+ParsedGlobal parseGlobal(ParsedProgram p) {
+    ParsedGlobal pg;
+    pg.variable_lines = NULL;
+    pg.typedefs = NULL;
+    pg.variables_count = 0;
+    pg.typedefs_count = 0;
+
+    int total_cl = 0;
+    // prendiamo le codeline
+    CodeLine* all_instructions = split_into_codelines(p.variables, p.v_count, &total_cl);
+
+    if (all_instructions == NULL) return pg;
+
+    // vediamo le codeline
+    for (int i = 0; i < total_cl; i++) {
+        CodeLine current = all_instructions[i];
+        int kept = 0;
+
+        // typedef?
+        if (current.count > 0 && strstr(current.lines[0], "typedef") != NULL) {
+            pg.typedefs_count++;
+            pg.typedefs = realloc(pg.typedefs, sizeof(CodeLine) * pg.typedefs_count);
+            pg.typedefs[pg.typedefs_count - 1] = current;
+            kept = 1;
+        }
+        // variabile?
+        else if (is_variable(current)) {
+            pg.variables_count++;
+            pg.variable_lines = realloc(pg.variable_lines, sizeof(CodeLine) * pg.variables_count);
+            pg.variable_lines[pg.variables_count - 1] = current;
+            kept = 1;
+        }
+
+        if (!kept) {
+            free_codeline(&current);
+        }
+    }
+    free(all_instructions);
     return pg;
 }
+
 
 // Questa funzione formatta una CodeLine e la restituisce wrappata in una ParsedCodeLine contenente
 // sia la CodeLine originale inviolata che la stringa ottenuta parsandone il contenuto
@@ -322,3 +338,21 @@ ParsedCodeLine parseCodeLine(CodeLine const c) {
     return parsedCodeLine;
 }
 
+ParsedMain parseMainProgram(ParsedProgram pp) {
+    int codeline_count = 0;
+    CodeLine* main_instructions = split_into_codelines(pp.main_body, pp.m_count,&codeline_count);
+    ParsedMain pm = {NULL, NULL};
+    // il main a quanto ho capito dovrebbe essere diviso solo ed esclusivamente in variabili e istruzioni di altro tipo
+    for (int i = 0; i < codeline_count; i++) {
+        CodeLine current_cl = main_instructions[i];
+        if (is_variable(current_cl)) {
+            pm.variable_lines = realloc(pm.variable_lines, i + 1);
+            pm.variable_lines[i] = current_cl;
+        }
+        else {
+            pm.instructions = realloc(pm.instructions, i + 1);
+            pm.instructions[i] = current_cl;
+        }
+    }
+    return pm;
+}

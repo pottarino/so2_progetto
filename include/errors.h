@@ -12,4 +12,10 @@ typedef enum {
     FILE_READ_ERROR = 4,
     FILE_WRITE_ERROR = 5
 } StatusCode;
+
+typedef enum {
+  VARIABLE_NAME_ERROR,
+    VARIABLE_TYPE_ERROR,
+    VARIABLE_UNUSED_ERROR,
+} VariableError;
 #endif //SO2_ERRORS_H

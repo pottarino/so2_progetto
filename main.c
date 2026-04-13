@@ -32,7 +32,7 @@ int main(int numeroArgomenti, char** argomenti) {
         // Valuto la stringa:
 
         // Se trovo il parametro input
-        if (strcmp(argomento, "--i") == 0 || strcmp(argomento, "-i") == 0) {
+        if (strcmp(argomento, "--in") == 0 || strcmp(argomento, "-i") == 0) {
 
             // devo valutare il prossimo input ( se presente) e in caso aggiungerlo come fileInput
             if (counter + 1 < numeroArgomenti) {
@@ -55,7 +55,7 @@ int main(int numeroArgomenti, char** argomenti) {
         }
 
         // Se trovo il parametro output
-        else if (strcmp(argomento, "--o") == 0 || strcmp(argomento, "-o") == 0) {
+        else if (strcmp(argomento, "--out") == 0 || strcmp(argomento, "-o") == 0) {
 
             // devo valutare il prossimo input( se presente) e in caso aggingerlo come fileOutput;
             if (counter + 1< numeroArgomenti) {
@@ -78,7 +78,7 @@ int main(int numeroArgomenti, char** argomenti) {
         }
 
         //Se trovo il parametro verboso
-        else if (strcmp(argomento, "--v") == 0 || strcmp(argomento, "-v") == 0) {
+        else if (strcmp(argomento, "--verbose") == 0 || strcmp(argomento, "-v") == 0) {
             //imposto la flag
             flagVerbose = true;
         }

@@ -1,6 +1,6 @@
-#ifndef PARSERS_H
-#define PARSERS_H
-
+#ifndef VARIABLE_RECOGNIZER_H
+#define VARIABLE_RECOGNIZER_H
+#include "parsers.h"
 #include "utility.h"
 
 

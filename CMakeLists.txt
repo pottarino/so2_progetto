@@ -9,7 +9,8 @@ add_executable(SO2
         main.c
         src/text_manipulation/parsers.c
         src/utility.c
-        src/hashtable.c
+        src/processing/hashtable.c
         src/text_manipulation/variable_recognizer.c
+        src/processing/stats.c
 
 )

@@ -1,4 +1,4 @@
-#include "../include/hashtable.h"
+#include "hashtable.h"
 // Funzione di hashing ottimizzata per le stringhe
 unsigned int hash(const char *nomeVariabile) {
     int lunghezzaNome = strlen(nomeVariabile);
