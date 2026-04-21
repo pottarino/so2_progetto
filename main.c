@@ -1,9 +1,17 @@
-#include <stdbool.h>
+#include "parser2.h"
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <utility.h>
 #include <errors.h>
+
+void print_program(ParsedProgram pp) {
+    ParsedCodeLine* h = pp.headers;
+    ParsedCodeLine* m = pp.main_body;
+    ParsedCodeLine* v = pp.variables;
+    for (int i = 0; i < pp.h_count; i++) printf("%s\n", h[i].formattedCodeLine);
+    for (int i = 0; i < pp.v_count; i++) printf("%s\n", v[i].formattedCodeLine);
+    for (int i = 0; i < pp.m_count; i++) printf("%s\n", m[i].formattedCodeLine);
+}
 
 // int runner(int numeroArgomenti, char** argomenti) {
 //
@@ -163,8 +171,9 @@ void test_stats_calculator(char* filename) {
     }
 
     // 2. primo parsing (pulizia commenti e split headers/global/main)
-    ParsedProgram pp = first_parsing(fr.text, filename);
-
+    ParsedProgram pp = parse_program(fr.text, filename);
+    printf("Ecco il programma\n");
+    print_program(pp);
     // 3. inizializzazione dizionari (fondamentale per is_keyword)
     init_syntax();
 
@@ -193,8 +202,8 @@ void test_stats_calculator(char* filename) {
     }
 
     // 6. cleanup finale (usa le funzioni che abbiamo scritto)
-    // free_stats(&stats);
-    // free_parsed_program(&pp);
+    //free_stats(&stats);
+//    free_parsed_program(&pp);
     // free(fr.text);
 
     printf("\n--- TEST COMPLETATO ---\n");
@@ -208,7 +217,6 @@ int main(int argc, char** argv) {
 
     test_stats_calculator(argv[1]);
 
-    return 0;
 }
 //int main(int numeroArgomenti, char** argomenti) {
   //  return runner(numeroArgomenti, argomenti);

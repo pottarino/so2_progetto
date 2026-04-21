@@ -78,23 +78,64 @@ int is_qualifier(const char* word) {
 return get_token_type(word) == TOKEN_MODIFIER;
 }
 
-char** split(const char* src, const char *splitter) {
-if (!src || !splitter) return NULL;
-char* copy = strdup(src);
-char** result = NULL;
-int count = 0;
-char* token = strtok(copy, splitter);
-
-while (token) {
-char** temp = realloc(result, (count + 2) * sizeof(char*));
-if (!temp) break;
-result = temp;
-result[count++] = strdup(token);
-result[count] = NULL;
-token = strtok(NULL, splitter);
+int startswith(const char *str, const char *prefix) {
+    while (*prefix) {
+        if (*prefix++ != *str++) return 0;
+    }
+    return 1;
 }
-free(copy);
-return result;
+
+char** split(const char* src, const char *splitter) {
+    printf("entro in split\n");
+    fflush(stdout);
+    if (!src || !splitter) {
+        printf("Ricevuta stringa nulla\n");
+        fflush(stdout);
+        return NULL;
+    }
+    printf("%p\n", &src);
+    fflush(stdout);
+    int i = 0;
+    while (src[i] != '\0') {
+        printf("Stampo numero %d", i);
+        printf("%c\n", src[i++]);
+    }
+
+    char* copy = strdup(src);
+    printf("Qui ci sono\n");
+    fflush(stdout);
+    if (!copy) return NULL; // Controllo sicurezza allocazione
+
+    char** result = NULL;
+    int count = 0;
+    fflush(stdout);
+    char* token = strtok(copy, splitter);
+    fflush(stdout);
+    while (token) {
+        // Usiamo una dimensione temporanea per sicurezza
+        char** temp = realloc(result, (count + 1) * sizeof(char*));
+        if (!temp) {
+            // Se fallisce, dobbiamo liberare quello che abbiamo fatto finora
+            for(int i=0; i<count; i++) free(result[i]);
+            free(result);
+            free(copy);
+            return NULL;
+        }
+        result = temp;
+        result[count] = strdup(token); // Copia reale
+        count++;
+        token = strtok(NULL, splitter);
+    }
+
+    // Aggiungiamo il terminatore NULL alla fine (necessario per il ciclo while(words[j]))
+    char** final_temp = realloc(result, (count + 1) * sizeof(char*));
+    if (final_temp) {
+        result = final_temp;
+        result[count] = NULL;
+    }
+
+    free(copy); // Adesso è sicuro liberare la copia di lavoro
+    return result;
 }
 
 // libera la memoriadello split
@@ -168,20 +209,22 @@ int is_keyword(const char* word) {
 return get_token_type(word) != TOKEN_UNKNOWN;
 }
 
-int allocate_more(void **pointer, int *old_size) {
-if (!pointer || !old_size) return 0;
+int allocate_more(void **pointer, int *current_capacity, size_t element_size) {
+    if (!pointer || !current_capacity || element_size == 0) return 0;
 
-int new_size = (*old_size) * 2;
-void *temp = realloc(*pointer, new_size);
+    // Se la capacità è 0, iniziamo con un valore base (es. 4)
+    int new_capacity = (*current_capacity <= 0) ? 4 : (*current_capacity * 2);
 
-if (!temp) {
-// se fallisce non tocchiamo il vecchio puntatore
-return 0;
-}
+    void *temp = realloc(*pointer, new_capacity * element_size);
 
-*pointer = temp;
-*old_size = new_size;
-return 1;
+    if (!temp) {
+        // Fallimento realloc: il vecchio puntatore è ancora valido, non facciamo nulla
+        return 0;
+    }
+
+    *pointer = temp;
+    *current_capacity = new_capacity;
+    return 1;
 }
 
 int free_unused(void **pointer, int new_size) {
@@ -203,3 +246,13 @@ return 0;
 
 *pointer = temp;
 return 1;}
+
+void clean_newline(char* str) {
+    if (!str) return;
+    size_t len = strlen(str);
+    // Cicla a ritroso e trasforma \r e \n in terminatori di stringa
+    while (len > 0 && (str[len - 1] == '\n' || str[len - 1] == '\r')) {
+        str[len - 1] = '\0';
+        len--;
+    }
+}

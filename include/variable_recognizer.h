@@ -34,6 +34,6 @@ char* getStructType(CodeLine structDefinition);
  */
 int is_variable(CodeLine codeline);
 Variable* parse_variable_declaration(CodeLine codeline, int* total_found);
-
-
+void free_variable_array(Variable *v, int count);
+void extract_pure_identifier(const char* src, char* dest);
 #endif

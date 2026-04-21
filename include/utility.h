@@ -36,5 +36,6 @@ void free_split(char** words);
 FileRead file_reader(char* file);
 int allocate_more(void ** pointer, int *old_size);
 int free_unused(void **pointer, int new_size);
-
+void clean_newline(char* str);
+int starts_with(const char* str, const char* prefix);
 #endif

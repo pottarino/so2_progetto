@@ -12,14 +12,6 @@ typedef struct {
 } FileText;
 
 typedef struct {
-    FileText* headers;
-    FileText* variables;
-    FileText* main_body;
-    char* filename;
-    int h_count, v_count, m_count;
-} ParsedProgram;
-
-typedef struct {
     char** lines;
     int* line_numbers;
     int count;
@@ -30,6 +22,15 @@ typedef struct {
     CodeLine codeLine;
     char* formattedCodeLine;
 } ParsedCodeLine;
+
+typedef struct {
+    ParsedCodeLine* headers;
+    ParsedCodeLine* variables;
+    ParsedCodeLine* main_body;
+    char* filename;
+    int h_count, v_count, m_count;
+} ParsedProgram;
+
 
 
 typedef struct {

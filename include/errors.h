@@ -14,9 +14,9 @@ typedef enum {
 } StatusCode;
 
 typedef enum {
-  VARIABLE_NAME_ERROR,
-    VARIABLE_TYPE_ERROR,
-    VARIABLE_UNUSED_ERROR,
+  VARIABLE_NAME_ERROR = 111,
+    VARIABLE_TYPE_ERROR = 222,
+    VARIABLE_UNUSED_ERROR = 333,
 } VariableError;
 
 typedef struct {
