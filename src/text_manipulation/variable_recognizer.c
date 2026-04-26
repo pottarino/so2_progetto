@@ -39,67 +39,47 @@ int is_name_valid(const char *name) {
  * implementa un'analisi sequenziale: Modificatori -> Tipo -> Identificatori.
  */
 int is_variable(CodeLine codeline) {
-
     for (int i = 0; i < codeline.count; i++) {
-        fflush(stdout);
         char **words = split(codeline.lines[i], " ");
-        fflush(stdout);
-        if (!words || !words[0]) {
-            free_split(words);
-            continue;
-        }
+        if (!words || !words[0]) { free_split(words); continue; }
 
-        if (!is_known_type(words[0]) && !is_qualifier(words[0]) && strcmp(words[0], "*") != 0) {
+        int first_is_type    = is_known_type(words[0]) || is_qualifier(words[0]) || strcmp(words[0], "*") == 0;
+        // tipo sconosciuto: non keyword, non numero, inizia con lettera o _
+        int first_could_be_unknown_type = !first_is_type && !is_keyword(words[0])
+                                          && (isalpha((unsigned char)words[0][0]) || words[0][0] == '_');
+
+        if (!first_is_type && !first_could_be_unknown_type) { free_split(words); continue; }
+
+        // se tipo sconosciuto, il secondo token deve essere un nome valido
+        if (first_could_be_unknown_type) {
+            if (!words[1] || !is_name_valid(words[1])) { free_split(words); continue; }
             free_split(words);
-            continue;
+            return 1;
         }
 
         int j = 0;
-        // 1. Mangia i tipi
-        while (words[j] != NULL && (is_qualifier(words[j]) || is_known_type(words[j]) || strcmp(words[j], "*") == 0)) {
-            j++;
-        }
+        while (words[j] != NULL && (is_qualifier(words[j]) || is_known_type(words[j]) || strcmp(words[j], "*") == 0)) j++;
 
-        // 2. Analizza i nomi delle variabili
-        if (words[j] != NULL) {
+        if (j > 0 && words[j] != NULL) {
             int at_least_one_var = 0;
             int all_tokens_valid = 1;
 
             while (words[j] != NULL) {
-                // Controllo parentesi (funzione)
-                if (strchr(words[j], '(') != NULL && strchr(words[j], '=') == NULL) {
-                    all_tokens_valid = 0;
-                    break;
-                }
-
+                if (strchr(words[j], '(') != NULL && strchr(words[j], '=') == NULL) { all_tokens_valid = 0; break; }
                 if (strchr(words[j], '=') != NULL) {
                     at_least_one_var = 1;
-                    // SALTO SICURO: incrementa j e controlla SEMPRE che non sia NULL
-                    while (words[j] != NULL) {
-                        if (strchr(words[j], ',') || strchr(words[j], ';')) break;
-                        j++;
-                    }
-                    // Se siamo arrivati in fondo senza virgole o punti e virgola
+                    while (words[j] != NULL && strchr(words[j], ',') == NULL && strchr(words[j], ';') == NULL) j++;
                     if (words[j] == NULL) break;
+                    if (strchr(words[j], ';') != NULL) break;
+                } else {
+                    if (!is_name_valid(words[j])) { all_tokens_valid = 0; break; }
+                    else at_least_one_var = 1;
                 }
-                else {
-                    if (!is_name_valid(words[j])) {
-                        all_tokens_valid = 0;
-                        break;
-                    }
-                    at_least_one_var = 1;
-                }
-
-                // Controllo finale sul token attuale prima di incrementare
-                if (strchr(words[j], ';') != NULL) break;
-
-                j++; // Incremento unico e controllato
+                if (words[j] != NULL && strchr(words[j], ';') != NULL) break;
+                j++;
             }
 
-            if (all_tokens_valid && at_least_one_var) {
-                free_split(words);
-                return 1;
-            }
+            if (all_tokens_valid && at_least_one_var) { free_split(words); return 1; }
         }
         free_split(words);
     }
@@ -134,24 +114,30 @@ Variable *parse_variable_declaration(CodeLine codeline, int *total_found) {
 
     int j = 0;
     char temp_type[512] = "";
+    int type_is_unknown = 0;
 
-    // 1. Isola il tipo (uguale per tutti i nomi sulla riga)
-    while (words[j] != NULL && (is_qualifier(words[j]) || is_known_type(words[j]) || strcmp(words[j], "*") == 0)) {
+    // isola il tipo
+    if (is_qualifier(words[j]) || is_known_type(words[j]) || strcmp(words[j], "*") == 0) {
+        while (words[j] != NULL && (is_qualifier(words[j]) || is_known_type(words[j]) || strcmp(words[j], "*") == 0)) {
+            strncat(temp_type, words[j], sizeof(temp_type) - strlen(temp_type) - 2);
+            strcat(temp_type, " ");
+            j++;
+        }
+    } else {
+        // tipo sconosciuto — prendilo comunque
         strncat(temp_type, words[j], sizeof(temp_type) - strlen(temp_type) - 2);
-        strcat(temp_type, " ");
+        type_is_unknown = 1;
         j++;
     }
-    if (strlen(temp_type) > 0) temp_type[strlen(temp_type) - 1] = '\0';
+    if (strlen(temp_type) > 0 && temp_type[strlen(temp_type)-1] == ' ')
+        temp_type[strlen(temp_type) - 1] = '\0';
 
-    // 2. Ciclo principale: salva ogni nome trovato come nuova Variable
     while (words[j] != NULL) {
-        // Se incontra una funzione, interrompe
         if (strchr(words[j], '(') != NULL && strchr(words[j], '=') == NULL) break;
 
         char clean_name[256];
         extract_pure_identifier(words[j], clean_name);
 
-        // Se abbiamo un nome valido, allochiamo e salviamo
         if (clean_name[0] != '\0' && !is_known_type(clean_name) && !is_qualifier(clean_name)) {
             Variable *temp = realloc(var_list, sizeof(Variable) * (*total_found + 1));
             if (!temp) { free_split(words); return var_list; }
@@ -165,24 +151,21 @@ Variable *parse_variable_declaration(CodeLine codeline, int *total_found) {
             v->used = 0;
             v->errors_count = 0;
             v->errors = NULL;
-        }
 
-        // Se c'è un uguale, salta tutto fino alla prossima virgola o fine riga
-        if (strchr(words[j], '=') != NULL) {
-            while (words[j] != NULL && strchr(words[j], ',') == NULL && strchr(words[j], ';') == NULL) {
-                j++;
+            if (type_is_unknown) {
+                v->errors = malloc(sizeof(VariableError));
+                if (v->errors) {
+                    v->errors[0] = VARIABLE_TYPE_ERROR;
+                    v->errors_count = 1;
+                }
             }
         }
 
-        // Se siamo su un token con la virgola, avanziamo per il prossimo nome
-        if (words[j] != NULL && strchr(words[j], ',') != NULL) {
-            j++;
-            continue;
+        if (strchr(words[j], '=') != NULL) {
+            while (words[j] != NULL && strchr(words[j], ',') == NULL && strchr(words[j], ';') == NULL) j++;
         }
-
-        // Se c'è il punto e virgola, la riga è finita
+        if (words[j] != NULL && strchr(words[j], ',') != NULL) { j++; continue; }
         if (words[j] == NULL || strchr(words[j], ';') != NULL) break;
-
         j++;
     }
 

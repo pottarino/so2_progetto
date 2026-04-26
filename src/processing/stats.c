@@ -2,6 +2,8 @@
 
 #include "stats.h"
 
+#include "parser2.h"
+
 Stats stats_adder(Stats stat1, Stats *stat2) {
     // somma due stats. potrebbe essere comodo passare un array di stats e il count. da vedere
 
@@ -60,15 +62,15 @@ int find_variable_idx(Variable *vars, int count, const char *name) {
     return -1;
 }
 
-void manage_variables(Variable **variables, int *current_idx, int *allocated_mem, int *currently_needing, CodeLine *codelines, int count) {
+void manage_variables(Variable **variables, int *current_idx, int *allocated_mem, int *currently_needing, ParsedCodeLine *codelines, int count) {
     for (int i = 0; i < count; i++) {
         int total_vars_line = 0;
-        Variable *found_vars = parse_variable_declaration(codelines[i], &total_vars_line);
+        Variable *found_vars = parse_variable_declaration(codelines[i].codeLine, &total_vars_line);
         if (!found_vars) continue;
 
         for (int j = 0; j < total_vars_line; j++) {
             if ((*current_idx + 1) * (int)sizeof(Variable) > *allocated_mem) {
-                if (!allocate_more((void **)variables, allocated_mem)) {
+                if (!allocate_more((void **)variables, allocated_mem, sizeof(Variable))) {
                     free_variable_array(found_vars, total_vars_line);
                     return;
                 }
@@ -89,25 +91,148 @@ void manage_variables(Variable **variables, int *current_idx, int *allocated_mem
     }
 }
 
-void check_variable_usage(Variable *vars, int var_count, ParsedMain pm) {
-    for (int i = 0; i < var_count; i++) vars[i].used = 0;
-
-    for (int i = 0; i < pm.instructions_count; i++) {
-        ParsedCodeLine pcl = parseCodeLine(pm.instructions[i]);
-        if (!pcl.formattedCodeLine) continue;
-        char **tokens = split(pcl.formattedCodeLine, " ");
-        if (!tokens) { free(pcl.formattedCodeLine); continue; }
-
-        for (int j = 0; tokens[j] != NULL; j++) {
-            char clean[256];
-            extract_pure_identifier(tokens[j], clean);
+// estrae tutti gli identificatori da una stringa e marca come usate le variabili trovate
+static void mark_used_in_expr(const char *expr, Variable *vars, int var_count) {
+    if (!expr) return;
+    char *copy = strdup(expr);
+    if (!copy) return;
+    // tokenizza su tutto ciò che non è un identificatore
+    char *tok = strtok(copy, " \t\n\r,;(){}[]+-*/%=!<>&|^~?:");
+    while (tok) {
+        char clean[256];
+        extract_pure_identifier(tok, clean);
+        if (clean[0]) {
             int idx = find_variable_idx(vars, var_count, clean);
             if (idx != -1) vars[idx].used = 1;
         }
-        free_split(tokens);
-        free(pcl.formattedCodeLine);
+        tok = strtok(NULL, " \t\n\r,;(){}[]+-*/%=!<>&|^~?:");
+    }
+    free(copy);
+}
+
+// dato "int x = expr" o "x = expr", ritorna un puntatore all'inizio di expr (dopo il primo =)
+// ritorna NULL se non c'è assegnamento
+static const char *rhs_of_assignment(const char *line) {
+    const char *eq = strchr(line, '=');
+    if (!eq) return NULL;
+    // evita ==
+    if (*(eq + 1) == '=') return NULL;
+    // evita !=, <=, >=
+    if (eq > line && (*(eq - 1) == '!' || *(eq - 1) == '<' || *(eq - 1) == '>')) return NULL;
+    return eq + 1;
+}
+
+// estrae il nome della variabile a sinistra di un assegnamento (es. "x" da "x = 5" o "int x = 5")
+static void lhs_name(const char *line, char *dest, int dest_size) {
+    dest[0] = '\0';
+    const char *eq = strchr(line, '=');
+    if (!eq) return;
+    if (*(eq + 1) == '=') return;
+    if (eq > line && (*(eq - 1) == '!' || *(eq - 1) == '<' || *(eq - 1) == '>')) return;
+
+    // copia la parte sinistra e prendi l'ultimo token (il nome)
+    int len = (int)(eq - line);
+    char *left = malloc(len + 1);
+    if (!left) return;
+    strncpy(left, line, len);
+    left[len] = '\0';
+
+    // l'ultimo token alfanumerico è il nome della variabile
+    char *last = NULL;
+    char *tok = strtok(left, " \t*,");
+    while (tok) { last = tok; tok = strtok(NULL, " \t*,"); }
+    if (last) {
+        char clean[256];
+        extract_pure_identifier(last, clean);
+        strncpy(dest, clean, dest_size - 1);
+        dest[dest_size - 1] = '\0';
+    }
+    free(left);
+}
+void check_variable_usage(Variable *vars, int var_count, ParsedMain pm) {
+    for (int i = 0; i < var_count; i++) vars[i].used = 0;
+
+    // prendo tutte le variabili utiizzate in maniera normale
+    for (int i = 0; i < pm.instructions_count; i++) {
+        const char *fmt = pm.instructions[i].formattedCodeLine;
+        if (!fmt) continue;
+        mark_used_in_expr(fmt, vars, var_count);
     }
 
+    // controlla le variabili che sono dipendenti da altre variabili
+    //ad esempio int x = 0; int y = x+ 1; allora x se non è utilizzata altrove dipende da y
+    // deps[i] = array di indici di variabili da cui la variabile i dipende
+    // se una variabile j nel rhs di "int x = f(j)" è usata, allora x è usata
+    int **deps      = calloc(var_count, sizeof(int *));
+    int  *deps_count = calloc(var_count, sizeof(int));
+    if (!deps || !deps_count) { free(deps); free(deps_count); return; }
+
+    for (int i = 0; i < pm.variables_count; i++) {
+        const char *fmt = pm.variable_lines[i].formattedCodeLine;
+        if (!fmt) continue;
+
+        const char *rhs = rhs_of_assignment(fmt);
+        char lhs[256] = "";
+        lhs_name(fmt, lhs, sizeof(lhs));
+        if (!lhs[0]) continue;
+
+        int lhs_idx = find_variable_idx(vars, var_count, lhs);
+        if (lhs_idx == -1) continue;
+
+        if (!rhs) continue;
+
+        // trova tutte le variabili nel rhs e registra la dipendenza
+        char *copy = strdup(rhs);
+        if (!copy) continue;
+        char *tok = strtok(copy, " \t\n\r,;(){}[]+-*/%=!<>&|^~?:");
+        for (int i = 0; i < var_count; i++)
+            printf("vars[%d].name = '%s'\n", i, vars[i].name);
+            fflush(stdout);
+        while (tok) {
+            char clean[256];
+            extract_pure_identifier(tok, clean);
+            printf("token pulito: '%s'\n", clean);
+            fflush(stdout);
+            int idx = find_variable_idx(vars, var_count, clean);
+            printf("idx per '%s': %d\n", clean, idx);
+            fflush(stdout);
+            if (clean[0]) {
+                int dep_idx = find_variable_idx(vars, var_count, clean);
+                if (dep_idx != -1 && dep_idx != lhs_idx) {
+                    deps[lhs_idx] = realloc(deps[lhs_idx], (deps_count[lhs_idx] + 1) * sizeof(int));
+                    if (deps[lhs_idx])
+                        deps[lhs_idx][deps_count[lhs_idx]++] = dep_idx;
+                }
+            }
+            tok = strtok(NULL, " \t\n\r,;(){}[]+-*/%=!<>&|^~?:");
+        }
+        free(copy);
+    }
+
+    //  passa l'informazione indietro
+    // se x è usata e x dipende da y, allora y è usata
+    int changed = 1;
+    while (changed) {
+        changed = 0;
+        for (int i = 0; i < var_count; i++) {
+            if (!vars[i].used) continue;
+            for (int d = 0; d < deps_count[i]; d++) {
+                int dep = deps[i][d];
+                if (!vars[dep].used) {
+                    vars[dep].used = 1;
+                    changed = 1;
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < var_count; i++) {
+        free(deps[i]);
+    }
+    free(deps);
+    free(deps_count);
+
+    // --- pass 4: assegna errore alle variabili non usate ---
     for (int i = 0; i < var_count; i++) {
         if (vars[i].used == 0 && vars[i].errors_count == 0) {
             vars[i].errors = malloc(sizeof(VariableError));
@@ -121,32 +246,39 @@ void check_variable_usage(Variable *vars, int var_count, ParsedMain pm) {
 Stats stats_calculator(ParsedProgram pp) {
     Stats stats = {0, 0, 0, 0, 0, NULL, 0, NULL, 0};
 
-    fflush(stdout);
     ParsedHeaders ph = parseHeaders(&pp);
-
     Stats *other_stats = (ph.count != 0) ? process_headers(ph) : NULL;
 
     Variable *variables = malloc(sizeof(Variable));
     if (!variables) return stats;
-    int allocated_mem    = sizeof(Variable);
+    int allocated_mem     = sizeof(Variable);
     int currently_needing = 0;
-    int current_idx      = 0;
+    int current_idx       = 0;
 
     ParsedGlobal pg = parseGlobal(pp);
     for (int i = 0; i < pg.typedefs_count; i++) {
-        char *tname = getStructType(pg.typedefs[i]);
+        char *tname = getStructType(pg.typedefs[i].codeLine);
         if (tname) { add_to_dict(&dict_types, tname); free(tname); }
     }
 
     manage_variables(&variables, &current_idx, &allocated_mem, &currently_needing, pg.variable_lines, pg.variables_count);
 
-    ParsedMain pm = parseMainProgram(pp); // bug
+    ParsedMain pm = parseMainProgram(pp);
 
     manage_variables(&variables, &current_idx, &allocated_mem, &currently_needing, pm.variable_lines, pm.variables_count);
 
     stats.variable_counter = current_idx;
-
+    printf("[DEBUG vars]\n");
+    for (int i = 0; i < current_idx; i++)
+        printf("  [%d] name='%s' type='%s'\n", i, variables[i].name, variables[i].type);
+    printf("[DEBUG pm.instructions]\n");
+    for (int i = 0; i < pm.instructions_count; i++)
+        printf("  [%d] '%s'\n", i, pm.instructions[i].formattedCodeLine);
+    printf("[DEBUG pm.variable_lines]\n");
+    for (int i = 0; i < pm.variables_count; i++)
+        printf("  [%d] '%s'\n", i, pm.variable_lines[i].formattedCodeLine);
     check_variable_usage(variables, current_idx, pm);
+
 
     for (int i = 0; i < current_idx; i++) {
         Variable *v = &variables[i];
@@ -159,27 +291,21 @@ Stats stats_calculator(ParsedProgram pp) {
         for (int e = 0; e < v->errors_count; e++) {
             VariableError e_type = v->errors[e];
             stats.error_counter++;
-            if (e_type == VARIABLE_NAME_ERROR)   stats.illegal_names_counter++;
-            if (e_type == VARIABLE_TYPE_ERROR)    stats.wrong_type_counter++;
+            if (e_type == VARIABLE_NAME_ERROR) stats.illegal_names_counter++;
+            if (e_type == VARIABLE_TYPE_ERROR) stats.wrong_type_counter++;
 
             if (e_type == VARIABLE_UNUSED_ERROR) {
                 stats.unused_variable_counter++;
                 Variable *tmp = realloc(stats.unused_variables, sizeof(Variable) * stats.unused_variable_counter);
-                if (!tmp) {
-                    stats.unused_variable_counter--;
-                    continue;
-                }
+                if (!tmp) { stats.unused_variable_counter--; continue; }
                 stats.unused_variables = tmp;
-                // Aggiorno dimensione di unused variabiles se la realloc funziona
                 stats.size_of_unused_variables = sizeof(Variable) * stats.unused_variable_counter;
                 stats.unused_variables[stats.unused_variable_counter - 1] = *v;
             }
 
             Error *etmp = realloc(stats.errors, sizeof(Error) * stats.error_counter);
-            if (!etmp)
-                continue;
+            if (!etmp) continue;
             stats.errors = etmp;
-            // Aggiornamento di size al valore corrente se realloc funge
             stats.size_of_errors = sizeof(Error) * stats.error_counter;
             Error new_error;
             new_error.type     = e_type;
@@ -188,11 +314,10 @@ Stats stats_calculator(ParsedProgram pp) {
             stats.errors[stats.error_counter - 1] = new_error;
         }
     }
-
-    Stats final = stats_adder(stats, other_stats);
+   // Stats final = stats_adder(stats, other_stats);
     free(other_stats);
     free_variable_array(variables, current_idx);
-    return final;
+    return stats;
 }
 
 void free_variable_errors(Variable *v) {
@@ -205,14 +330,14 @@ void free_calculator_locals(Variable *variables, int current_idx, ParsedHeaders 
 
     if (ph) free_headers(ph);
     if (pg) {
-        for (int i = 0; i < pg->variables_count; i++) free_codeline(&pg->variable_lines[i]);
-        for (int i = 0; i < pg->typedefs_count;  i++) free_codeline(&pg->typedefs[i]);
+        for (int i = 0; i < pg->variables_count; i++) free_codeline(&pg->variable_lines[i].codeLine);
+        for (int i = 0; i < pg->typedefs_count;  i++) free_codeline(&pg->typedefs[i].codeLine);
         free(pg->variable_lines);
         free(pg->typedefs);
     }
     if (pm) {
-        for (int i = 0; i < pm->variables_count;    i++) free_codeline(&pm->variable_lines[i]);
-        for (int i = 0; i < pm->instructions_count; i++) free_codeline(&pm->instructions[i]);
+        for (int i = 0; i < pm->variables_count;    i++) free_codeline(&pm->variable_lines[i].codeLine);
+        for (int i = 0; i < pm->instructions_count; i++) free_codeline(&pm->instructions[i].codeLine);
         free(pm->variable_lines);
         free(pm->instructions);
     }

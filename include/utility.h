@@ -1,6 +1,7 @@
 #ifndef PARSERS_H
 #define PARSERS_H
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "errors.h"
 
@@ -10,6 +11,8 @@ typedef enum {
     TOKEN_TYPE,
     TOKEN_MODIFIER
 } TokenType;
+
+
 
 typedef struct {
     char** items;
@@ -30,11 +33,11 @@ void add_to_dict(Dictionary* dict, const char* word);
 int is_qualifier(const char* word);
 int is_keyword(const char* word);
 TokenType get_token_type(const char* word);
-int is_known_type(char* word);
+int is_known_type(const char* word);
 char** split(const char* src, const char *splitter);
 void free_split(char** words);
 FileRead file_reader(char* file);
-int allocate_more(void ** pointer, int *old_size);
+int allocate_more(void ** pointer, int *old_size, size_t element_size);
 int free_unused(void **pointer, int new_size);
 void clean_newline(char* str);
 int starts_with(const char* str, const char* prefix);

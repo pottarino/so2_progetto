@@ -1,30 +1,19 @@
+#include "utility.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 #include "errors.h"
-
-typedef enum {
-TOKEN_UNKNOWN,
-TOKEN_KEYWORD,    // if, while, return...
-TOKEN_TYPE,       // int, char, double, custom_t...
-TOKEN_MODIFIER,   // const, static, volatile, unsigned...
-} TokenType;
-
-
-typedef struct {
-char* buffer;
-StatusCode statusCode;
-} FileRead;
-
-typedef struct {
-char** items;
-int count;
-} Dictionary;
-
 Dictionary dict_keywords = {NULL, 0};
 Dictionary dict_types = {NULL, 0};
 Dictionary dict_modifiers = {NULL, 0};
+
+
+
+
+
+
 
 //gestione dizionari
 void add_to_dict(Dictionary* dict, const char* word) {
@@ -71,7 +60,7 @@ return TOKEN_UNKNOWN;
 }
 
 int is_known_type(const char* word) {
-return get_token_type(word) == TOKEN_TYPE;
+    return get_token_type(word) == TOKEN_TYPE;
 }
 
 int is_qualifier(const char* word) {
@@ -86,31 +75,16 @@ int startswith(const char *str, const char *prefix) {
 }
 
 char** split(const char* src, const char *splitter) {
-    printf("entro in split\n");
-    fflush(stdout);
     if (!src || !splitter) {
-        printf("Ricevuta stringa nulla\n");
-        fflush(stdout);
         return NULL;
-    }
-    printf("%p\n", &src);
-    fflush(stdout);
-    int i = 0;
-    while (src[i] != '\0') {
-        printf("Stampo numero %d", i);
-        printf("%c\n", src[i++]);
     }
 
     char* copy = strdup(src);
-    printf("Qui ci sono\n");
-    fflush(stdout);
     if (!copy) return NULL; // Controllo sicurezza allocazione
 
     char** result = NULL;
     int count = 0;
-    fflush(stdout);
     char* token = strtok(copy, splitter);
-    fflush(stdout);
     while (token) {
         // Usiamo una dimensione temporanea per sicurezza
         char** temp = realloc(result, (count + 1) * sizeof(char*));
