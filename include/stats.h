@@ -56,7 +56,9 @@ typedef struct{
     int illegal_names_counter;
     int wrong_type_counter;
     Error * errors;
+    int size_of_errors; // Manteniamo esplicitamente per non dover effettuare ricalcoli nelle adds
     Variable * unused_variables;
+    int size_of_unused_variables; // Come sopra, serve per poter fare aggiunte senza ricalcolare le alloc
 } Stats;
 
 

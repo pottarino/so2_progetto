@@ -4,6 +4,43 @@
 
 Stats stats_adder(Stats stat1, Stats *stat2) {
     // somma due stats. potrebbe essere comodo passare un array di stats e il count. da vedere
+
+    if (stat2) {
+        // Faccio realloc della size
+        Error* etmp = realloc(stat1.errors, stat1.size_of_errors +  stat2->size_of_errors);
+        if (etmp) {
+            stat1.size_of_errors += stat2->size_of_errors;
+            stat1.errors = etmp;
+            // La realloc ha avuto successo: posso aggiungere i nuovi errori iterando sull'attributo
+            int indiceIniziale = stat1.error_counter; // Si parte dal prossimo elemento vuoto di stat1
+            for (int i = 0; i < stat2->error_counter; i++) {
+                stat1.errors[indiceIniziale] = stat2->errors[i];
+                indiceIniziale++;
+            }
+            // Si aggiornano le prime stats
+            stat1.error_counter +=stat2->error_counter;
+            stat1.illegal_names_counter += stat2->illegal_names_counter;
+            stat1.wrong_type_counter += stat2->wrong_type_counter;
+            stat1.variable_counter += stat2->variable_counter;
+
+            // Facciamo lo stesso con le variabili non utilizzate
+            Variable * vtmp = realloc(stat1.unused_variables, stat1.size_of_unused_variables + stat2->size_of_unused_variables);
+            if (vtmp) {
+                stat1.size_of_unused_variables += stat2->size_of_unused_variables;
+                stat1.unused_variables = vtmp;
+                int indiceErrore = stat1.unused_variable_counter;
+                for (int i = 0; i < stat2->unused_variable_counter; i++) {
+                    stat1.unused_variables[indiceErrore] = stat2->unused_variables[i];
+                    indiceErrore++;
+                }
+
+                // Abbiamo completato: aggiorniamo anche le variabili non utilizzate
+                stat1.unused_variable_counter += stat2->unused_variable_counter;
+            }
+
+        }
+    }
+    return stat1;
 }
 
 Stats *process_headers(ParsedHeaders ph) {
@@ -82,7 +119,7 @@ void check_variable_usage(Variable *vars, int var_count, ParsedMain pm) {
 }
 
 Stats stats_calculator(ParsedProgram pp) {
-    Stats stats = {0, 0, 0, 0, 0, NULL, NULL};
+    Stats stats = {0, 0, 0, 0, 0, NULL, 0, NULL, 0};
 
     fflush(stdout);
     ParsedHeaders ph = parseHeaders(&pp);
@@ -128,14 +165,22 @@ Stats stats_calculator(ParsedProgram pp) {
             if (e_type == VARIABLE_UNUSED_ERROR) {
                 stats.unused_variable_counter++;
                 Variable *tmp = realloc(stats.unused_variables, sizeof(Variable) * stats.unused_variable_counter);
-                if (!tmp) continue;
+                if (!tmp) {
+                    stats.unused_variable_counter--;
+                    continue;
+                }
                 stats.unused_variables = tmp;
+                // Aggiorno dimensione di unused variabiles se la realloc funziona
+                stats.size_of_unused_variables = sizeof(Variable) * stats.unused_variable_counter;
                 stats.unused_variables[stats.unused_variable_counter - 1] = *v;
             }
 
             Error *etmp = realloc(stats.errors, sizeof(Error) * stats.error_counter);
-            if (!etmp) continue;
+            if (!etmp)
+                continue;
             stats.errors = etmp;
+            // Aggiornamento di size al valore corrente se realloc funge
+            stats.size_of_errors = sizeof(Error) * stats.error_counter;
             Error new_error;
             new_error.type     = e_type;
             new_error.line     = (v->line.line_numbers && v->line.count > 0) ? v->line.line_numbers[0] : -1;
