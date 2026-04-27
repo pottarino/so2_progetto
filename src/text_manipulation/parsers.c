@@ -154,7 +154,7 @@ void free_codeline(CodeLine* cl) {
     }
 
     if (cl->filename != NULL) {
-        free(cl->filename);
+       // free(cl->filename);
         cl->filename = NULL;
     }
 

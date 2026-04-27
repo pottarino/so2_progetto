@@ -160,62 +160,13 @@ void print_program(ParsedProgram pp) {
 #include "stats.h"
 #include "parsers.h"
 
-void test_stats_calculator(char* filename) {
-    printf("--- AVVIO TEST PRECOMPILATORE: %s ---\n", filename);
-
-    // 1. carichiamo il file (usando la tua utility file_reader)
-    FileRead fr = file_reader(filename);
-    if (fr.text == NULL) {
-        printf("errore: non riesco a leggere %s\n", filename);
-        return;
-    }
-
-    // 2. primo parsing (pulizia commenti e split headers/global/main)
-    ParsedProgram pp = parse_program(fr.text, filename);
-    printf("Ecco il programma\n");
-    print_program(pp);
-    // 3. inizializzazione dizionari (fondamentale per is_keyword)
-    init_syntax();
-
-    // 4. calcolo delle stats
-    Stats stats = stats_calculator(pp);
-
-    // 5. visualizzazione risultati
-    printf("\n--- RISULTATI STATISTICHE ---\n");
-    printf("variabili totali trovate: %d\n", stats.variable_counter);
-    printf("nomi illegali:            %d\n", stats.illegal_names_counter);
-    printf("tipi errati:              %d\n", stats.wrong_type_counter);
-    printf("variabili inutilizzate:   %d\n", stats.unused_variable_counter);
-    printf("totale errori loggati:    %d\n", stats.error_counter);
-
-    printf("\n--- DETTAGLIO ERRORI ---\n");
-    for (int i = 0; i < stats.error_counter; i++) {
-        char* err_name = "";
-        if (stats.errors[i].type == VARIABLE_NAME_ERROR) err_name = "NOME_ILLEGALE";
-        else if (stats.errors[i].type == VARIABLE_TYPE_ERROR) err_name = "TIPO_ERRATO";
-        else if (stats.errors[i].type == VARIABLE_UNUSED_ERROR) err_name = "NON_USATA";
-
-        printf("[%s] rigo %d nel file %s\n",
-                err_name,
-                stats.errors[i].line,
-                stats.errors[i].filename);
-    }
-
-    // 6. cleanup finale (usa le funzioni che abbiamo scritto)
-    //free_stats(&stats);
-//    free_parsed_program(&pp);
-    // free(fr.text);
-
-    printf("\n--- TEST COMPLETATO ---\n");
-}
-
 int main(int argc, char** argv) {
     if (argc < 2) {
         printf("passami il file c come argomento, pirla!\n");
         return 1;
     }
 
-    test_stats_calculator(argv[1]);
+    analyze_program(argv[1]);
 
 }
 //int main(int numeroArgomenti, char** argomenti) {

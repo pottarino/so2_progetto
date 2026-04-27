@@ -27,7 +27,7 @@ typedef struct {
 extern Dictionary dict_keywords;
 extern Dictionary dict_types;
 extern Dictionary dict_modifiers;
-
+char* replace_extension(const char* filename, const char* new_ext);
 void init_syntax();
 void add_to_dict(Dictionary* dict, const char* word);
 int is_qualifier(const char* word);

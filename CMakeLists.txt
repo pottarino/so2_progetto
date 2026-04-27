@@ -14,5 +14,7 @@ add_executable(SO2
         cmake-build-debug/Testing/test.txt
         src/text_manipulation/parsers2.c
         include/parser2.h
+        src/LinkedList.c
+        include/LinkedList.h
 
 )

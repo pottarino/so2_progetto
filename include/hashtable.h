@@ -5,13 +5,6 @@
 #ifndef SO2_HASHTABLE_H
 #define SO2_HASHTABLE_H
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "variable_recognizer.h"
-
 /**
  * Variable è una struttura dati che rappresenta una variabile dichiarata: ci interessano il nome, dove viene dichiarata
  * e se viene usata. Lo scopo è quello di poter raccogliere le variabili per controllare in seguito se sono
@@ -34,22 +27,19 @@
 unsigned int hash(const char* nomeVariabile);
 
 
+typedef struct Element{
+    char* name;
+    struct Element *next;
+}Element;
 
 // Creazione
-typedef struct {
-    Variable* table[TABLE_SIZE];
+typedef struct HashTable{
+    Element* table[TABLE_SIZE];
 } HashTable;
 
-// Inizializzazione settando i puntatori a NULL
-void initHashTable(HashTable* ht);
 
-// Funzione per inserire ( si inseriscono puntatori)
-bool hashTableInsert(HashTable* ht, Variable* var);
-
-// Funzione per cercare una variabile (NULL se diversa o se non presente)
-Variable* hashTableLookup(HashTable* ht, char* variableName);
-
-// Funzione per rimuovere un elemento dalla mappa
-Variable* hashTableRemove(HashTable* ht, char* variableName);
+int hashTableInsert(HashTable *ht, const char* name);
+int hashTableLookup(HashTable *ht, const char *name);
+void hashTableRemove(HashTable *ht, const char *name);
 
 #endif //SO2_HASHTABLE_H

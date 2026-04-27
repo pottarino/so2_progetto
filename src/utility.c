@@ -130,6 +130,8 @@ FILE *fp = NULL;
 
 fp = fopen(filedest, "rb");
 if (!fp) {
+    printf("File non trovato\n");
+    fflush(stdout);
 codiceStato = FILE_OPEN_ERROR;
 goto exitHandler;
 }
@@ -229,4 +231,30 @@ void clean_newline(char* str) {
         str[len - 1] = '\0';
         len--;
     }
+}
+
+
+char* replace_extension(const char* filename, const char* new_ext) {
+    // 1. Trova la posizione dell'ultimo punto
+    const char *dot = strrchr(filename, '.');
+    size_t base_len;
+
+    if (!dot) {
+        // Se non c'è un punto, prendiamo tutta la stringa originale
+        base_len = strlen(filename);
+    } else {
+        // Calcoliamo la lunghezza della parte prima del punto
+        base_len = (size_t)(dot - filename);
+    }
+
+    // 2. Alloca memoria: base + '.' + nuova estensione + '\0'
+    char *new_str = malloc(base_len + 1 + strlen(new_ext) + 1);
+    if (!new_str) return NULL;
+
+    // 3. Costruisci la nuova stringa
+    memcpy(new_str, filename, base_len); // Copia la parte "qualcosa"
+    new_str[base_len] = '.';             // Aggiunge il punto
+    strcpy(new_str + base_len + 1, new_ext); // Aggiunge "newformat"
+
+    return new_str;
 }

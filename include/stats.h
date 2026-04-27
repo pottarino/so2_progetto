@@ -6,6 +6,7 @@
 #define SO2_STATS_H
 #include "errors.h"
 #include "hashtable.h"
+#include "variable_recognizer.h"
 
 /** Controllare singolarmente le variabili è un modo estremamente inefficiente di operare.
  *  L'obiettivo di questa parte è quindi quello di avere un modo di scorrere una sola volta
@@ -63,4 +64,5 @@ typedef struct{
 
 
 Stats stats_calculator(ParsedProgram pp);
+void analyze_program(char* filename);
 #endif //SO2_STATS_H
